@@ -37,7 +37,7 @@ def get_trending_now():
     return str(filtered_movies.head(10))
 
 
-@app.route('/v1/filmbase/results', methods=["GET"])
+@app.route('/v1/filmbase/results/plot', methods=["GET"])
 def get_reccs_by_plot():
     # EXAMPLE URL:
     # curl -X GET http://localhost:8000/v1/filmbase/results?search_query=The+Avengers
@@ -76,7 +76,7 @@ def get_reccs_by_plot():
     return get_recommendations_by_title(movies, title, indices, cos_similarity)
 
 
-@app.route('/v1/filmbase/try', methods=["GET"])
+@app.route('/v1/filmbase/results/keyword', methods=["GET"])
 def get_reccs_by_keywords():
     # EXAMPLE URL:
     # curl -X GET http://localhost:8000/v1/filmbase/results?search_query=The+Avengers
@@ -144,5 +144,7 @@ def serialize(data):
             return str.lower(data.replace(" ", ""))
         return ""
 
+
 def create_metadata_soup(data):
-    return ' '.join(data['keywords']) + ' ' + ' '.join(data['cast']) + ' ' + data['director'] + ' ' + ' '.join(data['genres'])
+    return ' '.join(data['keywords']) + ' ' + ' '.join(data['cast']) + ' ' + data['director'] + ' ' + ' '.join(
+        data['genres'])
