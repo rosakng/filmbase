@@ -1,2 +1,6 @@
 .chalice/deployments/
 .chalice/venv/
+*.pyo
+*.pyc
+bin
+lib
