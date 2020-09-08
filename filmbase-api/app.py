@@ -8,7 +8,7 @@ from sklearn.metrics.pairwise import sigmoid_kernel, cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from ast import literal_eval
 
-from utils.helper import get_serialized_films, get_weighted_rating, get_recommendations_by_title
+from utils.helper import get_serialized_films, get_recommendations_by_title
 
 app = Chalice(app_name='filmbase')
 
