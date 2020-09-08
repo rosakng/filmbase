@@ -156,9 +156,7 @@ def create_metadata_soup(data):
 def collab_filter():
     reader = Reader()
     ratings = pd.read_csv("data/ratings_small.csv")
-    # return str(ratings.head())
     data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], reader)
-    # data.split(n_folds=5)
 
     svd = SVD()
     print(cross_validate(svd, data, measures=['RMSE', 'MAE'], cv=5))
