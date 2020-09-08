@@ -10,33 +10,30 @@ from surprise.model_selection import cross_validate
 from surprise import Reader, Dataset, SVD
 from ast import literal_eval
 
-from utils.helper import get_serialized_films, get_recommendations_by_title
+from utils.helper import get_serialized_films, get_recommendations_by_title, get_weighted_rating, get_director_name, \
+    get_top_elements
 
 app = Chalice(app_name='filmbase')
-
-
-@app.route('/v1/filmbase/test', methods=["GET"])
-def tester():
-    movies = get_serialized_films()
-    return str(movies.head(2))
 
 
 @app.route('/v1/filmbase/trending', methods=["GET"])
 def get_trending_now():
     movies = get_serialized_films()
 
-    V = movies['vote_count']
-    R = movies['vote_average']
-    C = movies['vote_average'].mean()
-    # experiment and change the quantile
+    # Experiment and change the quantile
     m = movies['vote_count'].quantile(0.90)
 
+    print(m)
+
     filtered_movies = movies.copy().loc[movies['vote_count'] >= m]
-    filtered_movies['weighted_average'] = (V / (V + m) * R) + (m / (m + V) * C)
+
+    print(filtered_movies.shape)
+
+    filtered_movies['weighted_average'] = get_weighted_rating(movies)
 
     filtered_movies = filtered_movies.sort_values('weighted_average', ascending=False)
-    filtered_movies[['original_title', 'vote_count', 'vote_average', 'weighted_average', 'popularity']].head(20)
-    return str(filtered_movies.head(10))
+
+    return str(filtered_movies[['original_title', 'vote_count', 'vote_average', 'weighted_average', 'popularity']].head(20))
 
 
 @app.route('/v1/filmbase/results/plot', methods=["GET"])
@@ -52,24 +49,16 @@ def get_reccs_by_plot():
 
     movies = get_serialized_films()
 
-    V = movies['vote_count']
-    R = movies['vote_average']
-    C = movies['vote_average'].mean()
-    # experiment and change the quantile
-    m = movies['vote_count'].quantile(0.70)
-
-    movies['weighted_average'] = (V / (V + m) * R) + (m / (m + V) * C)
-
-    tfidf = TfidfVectorizer(stop_words='english')
+    tf_idf = TfidfVectorizer(stop_words='english')
 
     # Replace NaN with an empty string
     movies['overview'] = movies['overview'].fillna('')
-    tfidf_matrix = tfidf.fit_transform(movies['overview'])
+    tf_idf_matrix = tf_idf.fit_transform(movies['overview'])
 
     # in (X,Y), Y is the number of different words that were use to describe X movies in the data
-    tfidf_matrix.shape
+    print(tf_idf_matrix.shape)
 
-    cos_similarity = sigmoid_kernel(tfidf_matrix, tfidf_matrix)
+    cos_similarity = sigmoid_kernel(tf_idf_matrix, tf_idf_matrix)
 
     # Create a reverse map of movie titles and DataFrame indices.
     # This is so that we can find the index of a movie in our DataFrame, given its title.
@@ -117,23 +106,6 @@ def get_reccs_by_keywords():
     movies = movies.reset_index()
     indices = pd.Series(movies.index, index=movies['original_title'])
     return get_recommendations_by_title(movies, title, indices, cos_similarity)
-
-
-def get_director_name(data):
-    for i in data:
-        if i['job'] == 'Director':
-            return i['name']
-    return np.nan
-
-
-def get_top_elements(data):
-    if isinstance(data, list):
-        names = [i['name'] for i in data]
-
-        if len(names) > 3:
-            names = names[:3]
-        return names
-    return []
 
 
 # This method is used to convert data to lowercase and strip all the spaces so that the vectorizer recognizes common

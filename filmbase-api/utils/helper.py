@@ -1,6 +1,5 @@
 import pandas as pd
-from sklearn.metrics.pairwise import sigmoid_kernel
-from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
 
 
 def get_serialized_films():
@@ -17,9 +16,13 @@ def get_serialized_films():
     return movies_clean
 
 
-def get_weighted_rating(movies, m, C):
+def get_weighted_rating(movies):
     V = movies['vote_count']
     R = movies['vote_average']
+    C = movies['vote_average'].mean()
+
+    # Experiment and change the quantile
+    m = movies['vote_count'].quantile(0.90)
     # Calculation based on the IMDB formula
     return (V / (V + m) * R) + (m / (m + V) * C)
 
@@ -35,3 +38,20 @@ def get_recommendations_by_title(movies, title, indices, cosine_similarity):
     movie_indices = [i[0] for i in top_ten]
 
     return str(movies['original_title'].iloc[movie_indices])
+
+
+def get_director_name(data):
+    for i in data:
+        if i['job'] == 'Director':
+            return i['name']
+    return np.nan
+
+
+def get_top_elements(data):
+    if isinstance(data, list):
+        names = [i['name'] for i in data]
+
+        if len(names) > 3:
+            names = names[:3]
+        return names
+    return []
