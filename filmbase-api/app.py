@@ -1,7 +1,6 @@
 from chalice import Chalice
 
 import pandas as pd
-import numpy as np
 import urllib.parse
 
 from sklearn.metrics.pairwise import sigmoid_kernel, cosine_similarity
@@ -124,22 +123,29 @@ def get_reccs_by_keywords_credits_genres():
     return get_recommendations_by_title(movies, title, indices, cos_similarity)
 
 
-@app.route('/v1', methods=["GET"])
-def collab_filter():
+@app.route('/v1/filmbase/results/ratings', methods=["GET"])
+def get_reccs_by_ratings():
     reader = Reader()
+    # Use a new data set from movie lens that contain userId
     ratings = pd.read_csv("data/ratings_small.csv")
-    data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], reader)
 
+    data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], reader)
     svd = SVD()
+
+    # See that the Root Mean Square Error is approx. 0.89
     print(cross_validate(svd, data, measures=['RMSE', 'MAE'], cv=5))
 
-    trainset = data.build_full_trainset()
-    svd.fit(trainset)
+    # training data set
+    train_set = data.build_full_trainset()
+    svd.fit(train_set)
 
+    # Show ratings that userId 1 has made
     print(ratings[ratings['userId'] == 1])
 
-    return svd.predict(1, 302, 3)
+    # For svd.predict(X, Y, Z) Return prediction that for userID X with movieId Y
+    # Pick arbitrary true rating Z (optional)
+    return svd.predict(1, 100, 3)
 
 
 if __name__ == '__main__':
-    collab_filter()
+    get_reccs_by_ratings()
