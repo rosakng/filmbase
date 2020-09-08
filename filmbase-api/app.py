@@ -10,15 +10,15 @@ from surprise.model_selection import cross_validate
 from surprise import Reader, Dataset, SVD
 from ast import literal_eval
 
-from utils.helper import get_serialized_films, get_recommendations_by_title, get_weighted_rating, get_director_name, \
-    get_top_elements
+from utils.helper import get_film_data, get_recommendations_by_title, get_weighted_rating, get_director_name, \
+    get_top_elements, convert_data, create_metadata_soup
 
 app = Chalice(app_name='filmbase')
 
 
 @app.route('/v1/filmbase/trending', methods=["GET"])
 def get_trending_now():
-    movies = get_serialized_films()
+    movies = get_film_data()
 
     # Experiment and change the quantile
     m = movies['vote_count'].quantile(0.90)
@@ -47,7 +47,7 @@ def get_reccs_by_plot():
     encoded_title = app.current_request.query_params['search_query']
     title = urllib.parse.unquote_plus(encoded_title)
 
-    movies = get_serialized_films()
+    movies = get_film_data()
 
     tf_idf = TfidfVectorizer(stop_words='english')
 
@@ -67,8 +67,11 @@ def get_reccs_by_plot():
     return get_recommendations_by_title(movies, title, indices, cos_similarity)
 
 
-@app.route('/v1/filmbase/results/keyword', methods=["GET"])
-def get_reccs_by_keywords():
+@app.route('/v1/filmbase/results/metadata', methods=["GET"])
+def get_reccs_by_keywords_credits_genres():
+    # This endpoint returns the recommendations based on the metadata: 3 top actors, director, related genres,
+    # and movie plot keywords
+
     # EXAMPLE URL:
     # curl -X GET http://localhost:8000/v1/filmbase/results?search_query=The+Avengers
     #
@@ -78,50 +81,47 @@ def get_reccs_by_keywords():
     encoded_title = app.current_request.query_params['search_query']
     title = urllib.parse.unquote_plus(encoded_title)
 
-    movies = get_serialized_films()
+    movies = get_film_data()
 
+    # These sections are the existing columns we'll extract data from
     sections = ['cast', 'crew', 'keywords', 'genres']
     for section in sections:
+        # We use ast.literal_eval to parse the "stringified" list data into usable python objects
         movies[section] = movies[section].apply(literal_eval)
 
+    # Define director column with corresponding movie directors from the crew section
     movies['director'] = movies['crew'].apply(get_director_name)
 
-    features = ['cast', 'keywords', 'genres']
+    columns = ['cast', 'keywords', 'genres']
+    for column in columns:
+        movies[column] = movies[column].apply(get_top_elements)
+
+    # show snippet for new columns
+    # print(str(movies[['original_title', 'cast', 'director', 'keywords', 'genres']].head(3)))
+
+    features = ['cast', 'keywords', 'director', 'genres']
     for feature in features:
-        movies[feature] = movies[feature].apply(get_top_elements)
+        # parse data in feature columns
+        movies[feature] = movies[feature].apply(convert_data)
 
-    print(str(movies[['original_title', 'cast', 'director', 'keywords', 'genres']].head(3)))
-
-    features_2 = ['cast', 'keywords', 'director', 'genres']
-
-    for feature_2 in features_2:
-        movies[feature_2] = movies[feature_2].apply(serialize)
+    # show snippet for serialized data
+    # print(str(movies[['original_title', 'cast', 'director', 'keywords', 'genres']].head(3)))
 
     movies['soup'] = movies.apply(create_metadata_soup, axis=1)
+    # print(str(movies['soup'].head(3)))
+
+    # We use CountVectorizer here instead of TF-IDF so that we can account for actors/directors that have been a part
+    # of more than 1 movie
     count = CountVectorizer(stop_words='english')
     count_matrix = count.fit_transform(movies['soup'])
 
+    # Get cosine similarity matrix
     cos_similarity = cosine_similarity(count_matrix, count_matrix)
 
+    # Reset main DataFrame and construct reverse mapping
     movies = movies.reset_index()
     indices = pd.Series(movies.index, index=movies['original_title'])
     return get_recommendations_by_title(movies, title, indices, cos_similarity)
-
-
-# This method is used to convert data to lowercase and strip all the spaces so that the vectorizer recognizes common
-# words
-def serialize(data):
-    if isinstance(data, list):
-        return [str.lower(i.replace(" ", "")) for i in data]
-    else:
-        if isinstance(data, str):
-            return str.lower(data.replace(" ", ""))
-        return ""
-
-
-def create_metadata_soup(data):
-    return ' '.join(data['keywords']) + ' ' + ' '.join(data['cast']) + ' ' + data['director'] + ' ' + ' '.join(
-        data['genres'])
 
 
 @app.route('/v1', methods=["GET"])
