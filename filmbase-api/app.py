@@ -4,8 +4,8 @@ import pandas as pd
 import numpy as np
 import urllib.parse
 
-from sklearn.metrics.pairwise import sigmoid_kernel
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import sigmoid_kernel, cosine_similarity
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from ast import literal_eval
 
 from utils.helper import get_serialized_films, get_weighted_rating, get_recommendations_by_title
@@ -67,17 +67,26 @@ def get_reccs_by_plot():
     # in (X,Y), Y is the number of different words that were use to describe X movies in the data
     tfidf_matrix.shape
 
-    cosine_similarity = sigmoid_kernel(tfidf_matrix, tfidf_matrix)
+    cos_similarity = sigmoid_kernel(tfidf_matrix, tfidf_matrix)
 
     # Create a reverse map of movie titles and DataFrame indices.
     # This is so that we can find the index of a movie in our DataFrame, given its title.
     indices = pd.Series(movies.index, index=movies['original_title']).drop_duplicates()
 
-    return get_recommendations_by_title(movies, title, indices, cosine_similarity)
+    return get_recommendations_by_title(movies, title, indices, cos_similarity)
 
 
 @app.route('/v1/filmbase/try', methods=["GET"])
-def test():
+def get_reccs_by_keywords():
+    # EXAMPLE URL:
+    # curl -X GET http://localhost:8000/v1/filmbase/results?search_query=The+Avengers
+    #
+    # Encoded title: The+Avengers
+    # Decoded title: The Avengers
+
+    encoded_title = app.current_request.query_params['search_query']
+    title = urllib.parse.unquote_plus(encoded_title)
+
     movies = get_serialized_films()
 
     sections = ['cast', 'crew', 'keywords', 'genres']
@@ -90,7 +99,7 @@ def test():
     for feature in features:
         movies[feature] = movies[feature].apply(get_top_elements)
 
-    return str(movies[['original_title', 'cast', 'director', 'keywords', 'genres']].head(3))
+    print(str(movies[['original_title', 'cast', 'director', 'keywords', 'genres']].head(3)))
 
     features_2 = ['cast', 'keywords', 'director', 'genres']
 
@@ -98,6 +107,14 @@ def test():
         movies[feature_2] = movies[feature_2].apply(serialize)
 
     movies['soup'] = movies.apply(create_metadata_soup, axis=1)
+    count = CountVectorizer(stop_words='english')
+    count_matrix = count.fit_transform(movies['soup'])
+
+    cos_similarity = cosine_similarity(count_matrix, count_matrix)
+
+    movies = movies.reset_index()
+    indices = pd.Series(movies.index, index=movies['original_title'])
+    return get_recommendations_by_title(movies, title, indices, cos_similarity)
 
 
 def get_director_name(data):
@@ -121,7 +138,7 @@ def get_top_elements(data):
 # words
 def serialize(data):
     if isinstance(data, list):
-        return [str.lower(data.replace(" ", "")) for i in data]
+        return [str.lower(i.replace(" ", "")) for i in data]
     else:
         if isinstance(data, str):
             return str.lower(data.replace(" ", ""))
