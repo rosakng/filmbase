@@ -22,3 +22,16 @@ def get_weighted_rating(movies, m, C):
     R = movies['vote_average']
     # Calculation based on the IMDB formula
     return (V / (V + m) * R) + (m / (m + V) * C)
+
+
+def get_recommendations_by_title(movies, title, indices, cosine_similarity):
+    index = indices[title]
+
+    similarity_scores = list(enumerate(cosine_similarity[index]))
+
+    similarity_scores = sorted(similarity_scores, key=lambda x: x[1], reverse=True)
+
+    top_ten = similarity_scores[1:11]
+    movie_indices = [i[0] for i in top_ten]
+
+    return str(movies['original_title'].iloc[movie_indices])
