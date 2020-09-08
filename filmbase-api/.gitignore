@@ -1,6 +1,5 @@
 .chalice/deployments/
 .chalice/venv/
-*.pyo
-*.pyc
+__pycache__/
 bin
 lib
