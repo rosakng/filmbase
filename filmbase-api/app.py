@@ -155,15 +155,21 @@ def create_metadata_soup(data):
 @app.route('/v1', methods=["GET"])
 def collab_filter():
     reader = Reader()
-    ratings = pd.read_csv("data/ratings.csv")
-    return str(ratings.head())
-    # data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], reader)
+    ratings = pd.read_csv("data/ratings_small.csv")
+    # return str(ratings.head())
+    data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], reader)
     # data.split(n_folds=5)
-    # svd = SVD()
-    # cross_validate(svd, data, measures=['RMSE', 'MAE'])
-    #
-    # trainset = data.build_full_trainset()
-    # svd.fit(trainset)
-    #
-    # ratings[ratings['userId'] == 1]
-    # svd.predict(1, 302, 3)
+
+    svd = SVD()
+    print(cross_validate(svd, data, measures=['RMSE', 'MAE'], cv=5))
+
+    trainset = data.build_full_trainset()
+    svd.fit(trainset)
+
+    print(ratings[ratings['userId'] == 1])
+
+    return svd.predict(1, 302, 3)
+
+
+if __name__ == '__main__':
+    collab_filter()
