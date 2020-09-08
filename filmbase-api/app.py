@@ -1,12 +1,22 @@
 from chalice import Chalice
+
 import pandas as pd
+import numpy as np
+import urllib.parse
+
 from sklearn.metrics.pairwise import sigmoid_kernel
 from sklearn.feature_extraction.text import TfidfVectorizer
-import urllib.parse
+from ast import literal_eval
 
 from utils.helper import get_serialized_films, get_weighted_rating, get_recommendations_by_title
 
 app = Chalice(app_name='filmbase')
+
+
+@app.route('/v1/filmbase/test', methods=["GET"])
+def tester():
+    movies = get_serialized_films()
+    return str(movies.head(2))
 
 
 @app.route('/v1/filmbase/trending', methods=["GET"])
@@ -29,7 +39,6 @@ def get_trending_now():
 
 @app.route('/v1/filmbase/results', methods=["GET"])
 def get_reccs_by_plot():
-
     # EXAMPLE URL:
     # curl -X GET http://localhost:8000/v1/filmbase/results?search_query=The+Avengers
     #
@@ -66,3 +75,57 @@ def get_reccs_by_plot():
 
     return get_recommendations_by_title(movies, title, indices, cosine_similarity)
 
+
+@app.route('/v1/filmbase/try', methods=["GET"])
+def test():
+    movies = get_serialized_films()
+
+    sections = ['cast', 'crew', 'keywords', 'genres']
+    for section in sections:
+        movies[section] = movies[section].apply(literal_eval)
+
+    movies['director'] = movies['crew'].apply(get_director_name)
+
+    features = ['cast', 'keywords', 'genres']
+    for feature in features:
+        movies[feature] = movies[feature].apply(get_top_elements)
+
+    return str(movies[['original_title', 'cast', 'director', 'keywords', 'genres']].head(3))
+
+    features_2 = ['cast', 'keywords', 'director', 'genres']
+
+    for feature_2 in features_2:
+        movies[feature_2] = movies[feature_2].apply(serialize)
+
+    movies['soup'] = movies.apply(create_metadata_soup, axis=1)
+
+
+def get_director_name(data):
+    for i in data:
+        if i['job'] == 'Director':
+            return i['name']
+    return np.nan
+
+
+def get_top_elements(data):
+    if isinstance(data, list):
+        names = [i['name'] for i in data]
+
+        if len(names) > 3:
+            names = names[:3]
+        return names
+    return []
+
+
+# This method is used to convert data to lowercase and strip all the spaces so that the vectorizer recognizes common
+# words
+def serialize(data):
+    if isinstance(data, list):
+        return [str.lower(data.replace(" ", "")) for i in data]
+    else:
+        if isinstance(data, str):
+            return str.lower(data.replace(" ", ""))
+        return ""
+
+def create_metadata_soup(data):
+    return ' '.join(data['keywords']) + ' ' + ' '.join(data['cast']) + ' ' + data['director'] + ' ' + ' '.join(data['genres'])
