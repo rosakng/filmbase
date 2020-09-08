@@ -1,9 +1,8 @@
 import pandas as pd
-from sklearn.metrics.pairwise import sigmoid_kernel
-from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
 
 
-def get_serialized_films():
+def get_film_data():
     credits = pd.read_csv("data/tmdb_5000_credits.csv")
     movies_incomplete = pd.read_csv("data/tmdb_5000_movies.csv")
 
@@ -17,9 +16,13 @@ def get_serialized_films():
     return movies_clean
 
 
-def get_weighted_rating(movies, m, C):
+def get_weighted_rating(movies):
     V = movies['vote_count']
     R = movies['vote_average']
+    C = movies['vote_average'].mean()
+
+    # Experiment and change the quantile
+    m = movies['vote_count'].quantile(0.90)
     # Calculation based on the IMDB formula
     return (V / (V + m) * R) + (m / (m + V) * C)
 
@@ -35,3 +38,44 @@ def get_recommendations_by_title(movies, title, indices, cosine_similarity):
     movie_indices = [i[0] for i in top_ten]
 
     return str(movies['original_title'].iloc[movie_indices])
+
+
+# Gets director's name from data. If it doesnt exist, return NaN
+def get_director_name(data):
+    for i in data:
+        if i['job'] == 'Director':
+            return i['name']
+    return np.nan
+
+
+# Gets the top 3 elements or entire list
+def get_top_elements(data):
+    if isinstance(data, list):
+        names = [i['name'] for i in data]
+        # If there are more than 3 names, return the first 3, otherwise return the whole list
+        if len(names) > 3:
+            names = names[:3]
+        return names
+    # Return an empty list if there is missing/malformed data
+    return []
+
+
+# This method is used to convert data to lowercase and strip all the spaces
+# The purpose of this is so that the vectorizer recognizes common words
+def convert_data(data):
+    # parse lists in columns
+    if isinstance(data, list):
+        return [str.lower(i.replace(" ", "")) for i in data]
+    # parse strings in columns if they exist, else return empty string
+    else:
+        if isinstance(data, str):
+            return str.lower(data.replace(" ", ""))
+        return ""
+
+
+# Returns string that contains all metadata to feed to vectorizer
+# It joins words of each column, spaced apart between columns
+# Example: cultureclash future spacewar samworthington zo...
+def create_metadata_soup(data):
+    return ' '.join(data['keywords']) + ' ' + ' '.join(data['cast']) + ' ' + data['director'] + ' ' + ' '.join(
+        data['genres'])

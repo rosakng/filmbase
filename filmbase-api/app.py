@@ -1,7 +1,6 @@
 from chalice import Chalice
 
 import pandas as pd
-import numpy as np
 import urllib.parse
 
 from sklearn.metrics.pairwise import sigmoid_kernel, cosine_similarity
@@ -10,33 +9,30 @@ from surprise.model_selection import cross_validate
 from surprise import Reader, Dataset, SVD
 from ast import literal_eval
 
-from utils.helper import get_serialized_films, get_recommendations_by_title
+from utils.helper import get_film_data, get_recommendations_by_title, get_weighted_rating, get_director_name, \
+    get_top_elements, convert_data, create_metadata_soup
 
 app = Chalice(app_name='filmbase')
 
 
-@app.route('/v1/filmbase/test', methods=["GET"])
-def tester():
-    movies = get_serialized_films()
-    return str(movies.head(2))
-
-
 @app.route('/v1/filmbase/trending', methods=["GET"])
 def get_trending_now():
-    movies = get_serialized_films()
+    movies = get_film_data()
 
-    V = movies['vote_count']
-    R = movies['vote_average']
-    C = movies['vote_average'].mean()
-    # experiment and change the quantile
+    # Experiment and change the quantile
     m = movies['vote_count'].quantile(0.90)
 
+    print(m)
+
     filtered_movies = movies.copy().loc[movies['vote_count'] >= m]
-    filtered_movies['weighted_average'] = (V / (V + m) * R) + (m / (m + V) * C)
+
+    print(filtered_movies.shape)
+
+    filtered_movies['weighted_average'] = get_weighted_rating(movies)
 
     filtered_movies = filtered_movies.sort_values('weighted_average', ascending=False)
-    filtered_movies[['original_title', 'vote_count', 'vote_average', 'weighted_average', 'popularity']].head(20)
-    return str(filtered_movies.head(10))
+
+    return str(filtered_movies[['original_title', 'vote_count', 'vote_average', 'weighted_average', 'popularity']].head(20))
 
 
 @app.route('/v1/filmbase/results/plot', methods=["GET"])
@@ -50,26 +46,18 @@ def get_reccs_by_plot():
     encoded_title = app.current_request.query_params['search_query']
     title = urllib.parse.unquote_plus(encoded_title)
 
-    movies = get_serialized_films()
+    movies = get_film_data()
 
-    V = movies['vote_count']
-    R = movies['vote_average']
-    C = movies['vote_average'].mean()
-    # experiment and change the quantile
-    m = movies['vote_count'].quantile(0.70)
-
-    movies['weighted_average'] = (V / (V + m) * R) + (m / (m + V) * C)
-
-    tfidf = TfidfVectorizer(stop_words='english')
+    tf_idf = TfidfVectorizer(stop_words='english')
 
     # Replace NaN with an empty string
     movies['overview'] = movies['overview'].fillna('')
-    tfidf_matrix = tfidf.fit_transform(movies['overview'])
+    tf_idf_matrix = tf_idf.fit_transform(movies['overview'])
 
     # in (X,Y), Y is the number of different words that were use to describe X movies in the data
-    tfidf_matrix.shape
+    print(tf_idf_matrix.shape)
 
-    cos_similarity = sigmoid_kernel(tfidf_matrix, tfidf_matrix)
+    cos_similarity = sigmoid_kernel(tf_idf_matrix, tf_idf_matrix)
 
     # Create a reverse map of movie titles and DataFrame indices.
     # This is so that we can find the index of a movie in our DataFrame, given its title.
@@ -78,8 +66,11 @@ def get_reccs_by_plot():
     return get_recommendations_by_title(movies, title, indices, cos_similarity)
 
 
-@app.route('/v1/filmbase/results/keyword', methods=["GET"])
-def get_reccs_by_keywords():
+@app.route('/v1/filmbase/results/metadata', methods=["GET"])
+def get_reccs_by_keywords_credits_genres():
+    # This endpoint returns the recommendations based on the metadata: 3 top actors, director, related genres,
+    # and movie plot keywords
+
     # EXAMPLE URL:
     # curl -X GET http://localhost:8000/v1/filmbase/results?search_query=The+Avengers
     #
@@ -89,85 +80,72 @@ def get_reccs_by_keywords():
     encoded_title = app.current_request.query_params['search_query']
     title = urllib.parse.unquote_plus(encoded_title)
 
-    movies = get_serialized_films()
+    movies = get_film_data()
 
+    # These sections are the existing columns we'll extract data from
     sections = ['cast', 'crew', 'keywords', 'genres']
     for section in sections:
+        # We use ast.literal_eval to parse the "stringified" list data into usable python objects
         movies[section] = movies[section].apply(literal_eval)
 
+    # Define director column with corresponding movie directors from the crew section
     movies['director'] = movies['crew'].apply(get_director_name)
 
-    features = ['cast', 'keywords', 'genres']
+    columns = ['cast', 'keywords', 'genres']
+    for column in columns:
+        movies[column] = movies[column].apply(get_top_elements)
+
+    # show snippet for new columns
+    # print(str(movies[['original_title', 'cast', 'director', 'keywords', 'genres']].head(3)))
+
+    features = ['cast', 'keywords', 'director', 'genres']
     for feature in features:
-        movies[feature] = movies[feature].apply(get_top_elements)
+        # parse data in feature columns
+        movies[feature] = movies[feature].apply(convert_data)
 
-    print(str(movies[['original_title', 'cast', 'director', 'keywords', 'genres']].head(3)))
-
-    features_2 = ['cast', 'keywords', 'director', 'genres']
-
-    for feature_2 in features_2:
-        movies[feature_2] = movies[feature_2].apply(serialize)
+    # show snippet for serialized data
+    # print(str(movies[['original_title', 'cast', 'director', 'keywords', 'genres']].head(3)))
 
     movies['soup'] = movies.apply(create_metadata_soup, axis=1)
+    # print(str(movies['soup'].head(3)))
+
+    # We use CountVectorizer here instead of TF-IDF so that we can account for actors/directors that have been a part
+    # of more than 1 movie
     count = CountVectorizer(stop_words='english')
     count_matrix = count.fit_transform(movies['soup'])
 
+    # Get cosine similarity matrix
     cos_similarity = cosine_similarity(count_matrix, count_matrix)
 
+    # Reset main DataFrame and construct reverse mapping
     movies = movies.reset_index()
     indices = pd.Series(movies.index, index=movies['original_title'])
     return get_recommendations_by_title(movies, title, indices, cos_similarity)
 
 
-def get_director_name(data):
-    for i in data:
-        if i['job'] == 'Director':
-            return i['name']
-    return np.nan
-
-
-def get_top_elements(data):
-    if isinstance(data, list):
-        names = [i['name'] for i in data]
-
-        if len(names) > 3:
-            names = names[:3]
-        return names
-    return []
-
-
-# This method is used to convert data to lowercase and strip all the spaces so that the vectorizer recognizes common
-# words
-def serialize(data):
-    if isinstance(data, list):
-        return [str.lower(i.replace(" ", "")) for i in data]
-    else:
-        if isinstance(data, str):
-            return str.lower(data.replace(" ", ""))
-        return ""
-
-
-def create_metadata_soup(data):
-    return ' '.join(data['keywords']) + ' ' + ' '.join(data['cast']) + ' ' + data['director'] + ' ' + ' '.join(
-        data['genres'])
-
-
-@app.route('/v1', methods=["GET"])
-def collab_filter():
+@app.route('/v1/filmbase/results/ratings', methods=["GET"])
+def get_reccs_by_ratings():
     reader = Reader()
+    # Use a new data set from movie lens that contain userId
     ratings = pd.read_csv("data/ratings_small.csv")
-    data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], reader)
 
+    data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], reader)
     svd = SVD()
+
+    # See that the Root Mean Square Error is approx. 0.89
     print(cross_validate(svd, data, measures=['RMSE', 'MAE'], cv=5))
 
-    trainset = data.build_full_trainset()
-    svd.fit(trainset)
+    # training data set
+    train_set = data.build_full_trainset()
+    svd.fit(train_set)
 
+    # Show ratings that userId 1 has made
     print(ratings[ratings['userId'] == 1])
 
-    return svd.predict(1, 302, 3)
+    # For svd.predict(X, Y, Z) Return prediction that for userID X with movieId Y
+    # Pick arbitrary true rating Z (optional)
+    return svd.predict(1, 100, 3)
 
 
 if __name__ == '__main__':
-    collab_filter()
+    get_reccs_by_ratings()
