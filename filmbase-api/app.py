@@ -2,6 +2,7 @@ from chalice import Chalice
 import pandas as pd
 from sklearn.metrics.pairwise import sigmoid_kernel
 from sklearn.feature_extraction.text import TfidfVectorizer
+import urllib.parse
 
 from utils.helper import get_serialized_films, get_weighted_rating, get_recommendations_by_title
 
@@ -26,9 +27,17 @@ def get_trending_now():
     return str(filtered_movies.head(10))
 
 
-@app.route('/v1/filmbase/plot', methods=["GET"])
+@app.route('/v1/filmbase/results', methods=["GET"])
 def get_reccs_by_plot():
-    title = 'The Avengers'
+
+    # EXAMPLE URL:
+    # curl -X GET http://localhost:8000/v1/filmbase/results?search_query=The+Avengers
+    #
+    # Encoded title: The+Avengers
+    # Decoded title: The Avengers
+
+    encoded_title = app.current_request.query_params['search_query']
+    title = urllib.parse.unquote_plus(encoded_title)
 
     movies = get_serialized_films()
 
