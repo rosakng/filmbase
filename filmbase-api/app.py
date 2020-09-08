@@ -6,6 +6,8 @@ import urllib.parse
 
 from sklearn.metrics.pairwise import sigmoid_kernel, cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from surprise.model_selection import cross_validate
+from surprise import Reader, Dataset, SVD
 from ast import literal_eval
 
 from utils.helper import get_serialized_films, get_recommendations_by_title
@@ -148,3 +150,20 @@ def serialize(data):
 def create_metadata_soup(data):
     return ' '.join(data['keywords']) + ' ' + ' '.join(data['cast']) + ' ' + data['director'] + ' ' + ' '.join(
         data['genres'])
+
+
+@app.route('/v1', methods=["GET"])
+def collab_filter():
+    reader = Reader()
+    ratings = pd.read_csv("data/ratings.csv")
+    return str(ratings.head())
+    # data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], reader)
+    # data.split(n_folds=5)
+    # svd = SVD()
+    # cross_validate(svd, data, measures=['RMSE', 'MAE'])
+    #
+    # trainset = data.build_full_trainset()
+    # svd.fit(trainset)
+    #
+    # ratings[ratings['userId'] == 1]
+    # svd.predict(1, 302, 3)
