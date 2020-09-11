@@ -19,4 +19,3 @@ This application uses the [Chalice Serverless Microframework](https://chalice.re
 
 ### Example curl command run locally:
 * Get estimated prediction with userId ratings: `curl -X GET http://localhost:8000/v1/filmbase/results/ratings`
-* See Instructions Here:
