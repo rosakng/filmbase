@@ -180,9 +180,9 @@ def get_reccs_by_user_input_ratings():
     # print(userSubset.head())
     userSubsetGroup = userSubset.groupby(['userId'])
     # Group by a certain user id:
-    print(userSubsetGroup.get_group(200))
+    # print(userSubsetGroup.get_group(200))
     userSubsetGroup = sorted(userSubsetGroup, key=lambda x: len(x[1]), reverse=True)
-    print(userSubsetGroup[:3])
+    # print(userSubsetGroup[:3])
 
     userSubsetGroup = userSubsetGroup[0:100]
 
@@ -215,40 +215,33 @@ def get_reccs_by_user_input_ratings():
         else:
             pearsonCorrelationDict[name] = 0
 
-        print(pearsonCorrelationDict.items())
+        # print(pearsonCorrelationDict.items())
 
         pearsonDF = pd.DataFrame.from_dict(pearsonCorrelationDict, orient='index')
         pearsonDF.columns = ['similarityIndex']
         pearsonDF['userId'] = pearsonDF.index
         pearsonDF.index = range(len(pearsonDF))
-        print(pearsonDF.head())
 
         # Change this number to choose top X about of similar users
         topUsers = pearsonDF.sort_values(by='similarityIndex', ascending=False)[0:60]
-        print(topUsers.head())
 
+        # Get movies watched by the users in pearson datafram from the ratings dataframe and store in "similarityIndex"
+        # Take weighted average of the ratings of movies using Pearson Correlation as the weight
         topUsersRating = topUsers.merge(ratings_df, left_on='userId', right_on='userId', how='inner')
-        print(topUsersRating.head())
-
-        # Multiplies the similarity by the user's ratings
         topUsersRating['weightedRating'] = topUsersRating['similarityIndex'] * topUsersRating['rating']
-        print(topUsersRating.head())
 
-        # Applies a sum to the topUsers after grouping it up by userId
+        # Applies a sum to the topUsers for similarity index and weighted rating
         tempTopUsersRating = topUsersRating.groupby('movieId').sum()[['similarityIndex', 'weightedRating']]
         tempTopUsersRating.columns = ['sum_similarityIndex', 'sum_weightedRating']
-        print(tempTopUsersRating.head())
 
-        # Creates an empty dataframe
+        # Empty dataframe
         recommendation_df = pd.DataFrame()
-        # Now we take the weighted average
+        # Take the weighted average and add column for it
         recommendation_df['weighted average recommendation score'] = tempTopUsersRating['sum_weightedRating'] / tempTopUsersRating['sum_similarityIndex']
         recommendation_df['movieId'] = tempTopUsersRating.index
-        print(recommendation_df.head())
 
+        # Sort dataframe and see top X amount of movies
         recommendation_df = recommendation_df.sort_values(by='weighted average recommendation score', ascending=False)
-        print(recommendation_df.head(10))
-
         return str(movies_df.loc[movies_df['movieId'].isin(recommendation_df.head(10)['movieId'].tolist())])
 
 
