@@ -151,6 +151,30 @@ def get_reccs_by_ratings():
 
 @app.route('/v1/filmbase/results/reccs', methods=["POST"])
 def get_reccs_by_user_input_ratings():
+    # REQUEST EXAMPLE:
+    # {
+    #    "1":{
+    #       "title":"Breakfast Club, The",
+    #       "rating":5
+    #    },
+    #    "2":{
+    #       "title":"Toy Story",
+    #       "rating":3.5
+    #    },
+    #    "3":{
+    #       "title":"Jumanji",
+    #       "rating":2
+    #    },
+    #    "4":{
+    #       "title":"Pulp Fiction",
+    #       "rating":5
+    #    },
+    #    "5":{
+    #       "title":"Akira",
+    #       "rating":4.5
+    #    }
+    # }
+
     json_body = app.current_request.json_body
     request = []
     for item in json_body:
