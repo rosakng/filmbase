@@ -19,3 +19,26 @@ This application uses the [Chalice Serverless Microframework](https://chalice.re
 
 ### Example curl command run locally:
 * Get estimated prediction with userId ratings: `curl -X GET http://localhost:8000/v1/filmbase/results/ratings`
+* Get recommendations of movies with user input ratings: 
+`curl -d '{
+   "1":{
+      "title":"Breakfast Club, The",
+      "rating":5
+   },
+   "2":{
+      "title":"Toy Story",
+      "rating":3.5
+   },
+   "3":{
+      "title":"Jumanji",
+      "rating":2
+   },
+   "4":{
+      "title":"Pulp Fiction",
+      "rating":5
+   },
+   "5":{
+      "title":"Akira",
+      "rating":4.5
+   }
+}' -H 'Content-Type: application/json' http://localhost:8000/v1/filmbase/results/reccs`
