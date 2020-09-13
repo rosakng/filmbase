@@ -14,7 +14,7 @@ This application uses the [Chalice Serverless Microframework](https://chalice.re
 
 * Create a virtual env: In root directory, `python3.7 -mvenv env`
 * Activate virtual env: Run `source env/bin/activate`
-* Install dependencies: Run `pip install -r requirements.txt`
+* Install dependencies: cd into `filmbase-api` Run `pip install -r requirements.txt`
 * Run local API:        cd into `filmbase-api` and run `chalice local`
 
 ### Example curl command run locally:
