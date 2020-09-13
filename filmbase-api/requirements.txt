@@ -2,3 +2,6 @@ pandas
 sklearn
 numpy
 pytest
+chalice
+dataclasses_json
+dataclass

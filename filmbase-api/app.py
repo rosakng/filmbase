@@ -152,24 +152,28 @@ def get_reccs_by_ratings():
 @app.route('/v1/filmbase/results/reccs', methods=["POST"])
 def get_reccs_by_user_input_ratings():
     json_body = app.current_request.json_body
-#     TODO: Post request for user input
+    request = []
+    for item in json_body:
+        request.append(json_body.get(item))
+    print(request)
+
+    return get_reccs_by_user_input_ratings(request)
 
 
-@app.route('/v1/filmbase/results/reccs', methods=["GET"])
-def get_reccs_by_user_input_ratings():
+def get_reccs_by_user_input_ratings(user_input_rated_movies):
     # This method uses Collaborative Filtering (User-User Filtering) to generate recommended items
     # It attempts to find users that have similar preferences by using the Pearson Correlation Function
     movies_df = get_clean_movies_dataframe()
     ratings_df = get_clean_ratings_dataframe()
 
-    # TODO: Create post request for user input
-    user_input_rated_movies = [
-        {'title': 'Breakfast Club, The', 'rating': 5},
-        {'title': 'Toy Story', 'rating': 3.5},
-        {'title': 'Jumanji', 'rating': 2},
-        {'title': "Pulp Fiction", 'rating': 5},
-        {'title': 'Akira', 'rating': 4.5}
-    ]
+    # user_input_rated_movies = [
+    #     {'title': 'Breakfast Club, The', 'rating': 5},
+    #     {'title': 'Toy Story', 'rating': 3.5},
+    #     {'title': 'Jumanji', 'rating': 2},
+    #     {'title': "Pulp Fiction", 'rating': 5},
+    #     {'title': 'Akira', 'rating': 4.5}
+    # ]
+
     # Generate dataframe for user input with rated movies
     input_movies = pd.DataFrame(user_input_rated_movies)
     # print(input_movies.head())
@@ -244,13 +248,11 @@ def get_reccs_by_user_input_ratings():
         # Empty dataframe
         recommendation_df = pd.DataFrame()
         # Take the weighted average and add column for it
-        recommendation_df['weighted average recommendation score'] = temp_top_users_rating['sum_weightedRating'] / temp_top_users_rating['sum_similarityIndex']
+        recommendation_df['weighted average recommendation score'] = temp_top_users_rating['sum_weightedRating'] / \
+                                                                     temp_top_users_rating['sum_similarityIndex']
         recommendation_df['movieId'] = temp_top_users_rating.index
 
         # Sort dataframe and see top X amount of movies
         recommendation_df = recommendation_df.sort_values(by='weighted average recommendation score', ascending=False)
         return str(movies_df.loc[movies_df['movieId'].isin(recommendation_df.head(10)['movieId'].tolist())])
 
-
-if __name__ == '__main__':
-    get_reccs_by_user_input_ratings()
