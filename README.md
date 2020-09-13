@@ -42,3 +42,5 @@ This application uses the [Chalice Serverless Microframework](https://chalice.re
       "rating":4.5
    }
 }' -H 'Content-Type: application/json' http://localhost:8000/v1/filmbase/results/recommendations`
+
+### See WIKI page for more details
