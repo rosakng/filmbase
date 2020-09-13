@@ -79,3 +79,23 @@ def convert_data(data):
 def create_metadata_soup(data):
     return ' '.join(data['keywords']) + ' ' + ' '.join(data['cast']) + ' ' + data['director'] + ' ' + ' '.join(
         data['genres'])
+
+# Returns movie dataframe with year in a new column and removing it from the title column and without unneeded columns
+def get_clean_movies_dataframe():
+    movies_df = pd.read_csv('data/movies.csv')
+
+    movies_df['year'] = movies_df.title.str.extract('(\(\d\d\d\d\))', expand=False)
+    movies_df['year'] = movies_df.year.str.extract('(\d\d\d\d)', expand=False)
+    movies_df['title'] = movies_df.title.str.replace('(\(\d\d\d\d\))', '')
+    movies_df['title'] = movies_df['title'].apply(lambda x: x.strip())
+
+    movies_df = movies_df.drop('genres', 1)
+    return movies_df
+
+
+# Returns ratings dataframe without unneeded columns
+def get_clean_ratings_dataframe():
+    ratings_df = pd.read_csv('data/ratings_small.csv')
+
+    ratings_df = ratings_df.drop('timestamp', 1)
+    return ratings_df
