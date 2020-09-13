@@ -221,7 +221,8 @@ def get_reccs_by_user_input_ratings(user_input_rated_movies):
     similar_users_subset_group = similar_users_subset_group[0:100]
 
     # TODO: move into a function
-    # use Pearson Correlation Coefficient to find similarity of users to the input user
+    # Use Pearson Correlation Coefficient to find similarity of users to the input user
+    # https://en.wikipedia.org/wiki/Pearson_correlation_coefficient
     pearson_correlation_dict = {}
     # For every user group in our subset
     for name, group in similar_users_subset_group:
@@ -279,4 +280,3 @@ def get_reccs_by_user_input_ratings(user_input_rated_movies):
         # Sort dataframe and see top X amount of movies
         recommendation_df = recommendation_df.sort_values(by='weighted average recommendation score', ascending=False)
         return str(movies_df.loc[movies_df['movieId'].isin(recommendation_df.head(10)['movieId'].tolist())])
-
