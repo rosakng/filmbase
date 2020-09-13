@@ -149,6 +149,12 @@ def get_reccs_by_ratings():
     return svd.predict(1, 100, 3)
 
 
+@app.route('/v1/filmbase/results/reccs', methods=["POST"])
+def get_reccs_by_user_input_ratings():
+    json_body = app.current_request.json_body
+#     TODO: Post request for user input
+
+
 @app.route('/v1/filmbase/results/reccs', methods=["GET"])
 def get_reccs_by_user_input_ratings():
     # This method uses Collaborative Filtering (User-User Filtering) to generate recommended items
@@ -157,7 +163,7 @@ def get_reccs_by_user_input_ratings():
     ratings_df = get_clean_ratings_dataframe()
 
     # TODO: Create post request for user input
-    userInput = [
+    user_input_rated_movies = [
         {'title': 'Breakfast Club, The', 'rating': 5},
         {'title': 'Toy Story', 'rating': 3.5},
         {'title': 'Jumanji', 'rating': 2},
@@ -165,80 +171,81 @@ def get_reccs_by_user_input_ratings():
         {'title': 'Akira', 'rating': 4.5}
     ]
     # Generate dataframe for user input with rated movies
-    inputMovies = pd.DataFrame(userInput)
-    # print(inputMovies.head())
+    input_movies = pd.DataFrame(user_input_rated_movies)
+    # print(input_movies.head())
 
     # Find rows that contain the rated movie titles, then merge it
     # Merged dataframe will movieId, title, and rating of movies that were rated
-    inputId = movies_df[movies_df['title'].isin(inputMovies['title'].tolist())]
+    inputId = movies_df[movies_df['title'].isin(input_movies['title'].tolist())]
     # TODO: some check to make sure that the rated movies are in the movie dataframe
-    inputMovies = pd.merge(inputId, inputMovies)
-    inputMovies = inputMovies.drop('year', 1)
+    input_movies = pd.merge(inputId, input_movies)
+    input_movies = input_movies.drop('year', 1)
 
     # Use ratings dataframe and get users that have rated the same movies as the input
-    userSubset = ratings_df[ratings_df['movieId'].isin(inputMovies['movieId'].tolist())]
-    # print(userSubset.head())
-    userSubsetGroup = userSubset.groupby(['userId'])
+    users_similar_movies_subset = ratings_df[ratings_df['movieId'].isin(input_movies['movieId'].tolist())]
+    # print(users_similar_movies_subset.head())
+    similar_users_subset_group = users_similar_movies_subset.groupby(['userId'])
     # Group by a certain user id:
-    # print(userSubsetGroup.get_group(200))
-    userSubsetGroup = sorted(userSubsetGroup, key=lambda x: len(x[1]), reverse=True)
-    # print(userSubsetGroup[:3])
+    # print(similar_users_subset_group.get_group(200))
+    similar_users_subset_group = sorted(similar_users_subset_group, key=lambda x: len(x[1]), reverse=True)
+    # print(similar_users_subset_group[:3])
 
-    userSubsetGroup = userSubsetGroup[0:100]
+    similar_users_subset_group = similar_users_subset_group[0:100]
 
+    # TODO: move into a function
     # use Pearson Correlation Coefficient to find similarity of users to the input user
-    pearsonCorrelationDict = {}
+    pearson_correlation_dict = {}
     # For every user group in our subset
-    for name, group in userSubsetGroup:
+    for name, group in similar_users_subset_group:
         # Sorting the input and current user group
         group = group.sort_values(by='movieId')
-        inputMovies = inputMovies.sort_values(by='movieId')
+        input_movies = input_movies.sort_values(by='movieId')
         # N value for the formula
-        nRatings = len(group)
+        n_ratings = len(group)
         # Review scores for the movies that they both have in common
-        temp_df = inputMovies[inputMovies['movieId'].isin(group['movieId'].tolist())]
+        temp_df = input_movies[input_movies['movieId'].isin(group['movieId'].tolist())]
         # And then store them in a temporary buffer variable in a list
-        tempRatingList = temp_df['rating'].tolist()
+        temp_rating_list = temp_df['rating'].tolist()
         # Put the current user group reviews in a list format
-        tempGroupList = group['rating'].tolist()
+        temp_group_list = group['rating'].tolist()
 
         # Calculate the pearson correlation between two users, so called, x and y
         # See Sum of Squares formula
-        Sxx = sum([i ** 2 for i in tempRatingList]) - pow(sum(tempRatingList), 2) / float(nRatings)
-        Syy = sum([i ** 2 for i in tempGroupList]) - pow(sum(tempGroupList), 2) / float(nRatings)
-        Sxy = sum(i * j for i, j in zip(tempRatingList, tempGroupList)) - sum(tempRatingList) * sum(
-            tempGroupList) / float(nRatings)
+        Sxx = sum([i ** 2 for i in temp_rating_list]) - pow(sum(temp_rating_list), 2) / float(n_ratings)
+        Syy = sum([i ** 2 for i in temp_group_list]) - pow(sum(temp_group_list), 2) / float(n_ratings)
+        Sxy = sum(i * j for i, j in zip(temp_rating_list, temp_group_list)) - sum(temp_rating_list) * sum(
+            temp_group_list) / float(n_ratings)
 
         # If the denominator is not zero, then divide, else, set correlation to 0
         if Sxx != 0 and Syy != 0:
-            pearsonCorrelationDict[name] = Sxy / sqrt(Sxx * Syy)
+            pearson_correlation_dict[name] = Sxy / sqrt(Sxx * Syy)
         else:
-            pearsonCorrelationDict[name] = 0
+            pearson_correlation_dict[name] = 0
 
-        # print(pearsonCorrelationDict.items())
+        # print(pearson_correlation_dict.items())
 
-        pearsonDF = pd.DataFrame.from_dict(pearsonCorrelationDict, orient='index')
-        pearsonDF.columns = ['similarityIndex']
-        pearsonDF['userId'] = pearsonDF.index
-        pearsonDF.index = range(len(pearsonDF))
+        pearson_correlation_df = pd.DataFrame.from_dict(pearson_correlation_dict, orient='index')
+        pearson_correlation_df.columns = ['similarityIndex']
+        pearson_correlation_df['userId'] = pearson_correlation_df.index
+        pearson_correlation_df.index = range(len(pearson_correlation_df))
 
         # Change this number to choose top X about of similar users
-        topUsers = pearsonDF.sort_values(by='similarityIndex', ascending=False)[0:60]
+        top_users = pearson_correlation_df.sort_values(by='similarityIndex', ascending=False)[0:60]
 
         # Get movies watched by the users in pearson datafram from the ratings dataframe and store in "similarityIndex"
         # Take weighted average of the ratings of movies using Pearson Correlation as the weight
-        topUsersRating = topUsers.merge(ratings_df, left_on='userId', right_on='userId', how='inner')
-        topUsersRating['weightedRating'] = topUsersRating['similarityIndex'] * topUsersRating['rating']
+        top_users_rating = top_users.merge(ratings_df, left_on='userId', right_on='userId', how='inner')
+        top_users_rating['weightedRating'] = top_users_rating['similarityIndex'] * top_users_rating['rating']
 
-        # Applies a sum to the topUsers for similarity index and weighted rating
-        tempTopUsersRating = topUsersRating.groupby('movieId').sum()[['similarityIndex', 'weightedRating']]
-        tempTopUsersRating.columns = ['sum_similarityIndex', 'sum_weightedRating']
+        # Applies a sum to the top_users for similarity index and weighted rating
+        temp_top_users_rating = top_users_rating.groupby('movieId').sum()[['similarityIndex', 'weightedRating']]
+        temp_top_users_rating.columns = ['sum_similarityIndex', 'sum_weightedRating']
 
         # Empty dataframe
         recommendation_df = pd.DataFrame()
         # Take the weighted average and add column for it
-        recommendation_df['weighted average recommendation score'] = tempTopUsersRating['sum_weightedRating'] / tempTopUsersRating['sum_similarityIndex']
-        recommendation_df['movieId'] = tempTopUsersRating.index
+        recommendation_df['weighted average recommendation score'] = temp_top_users_rating['sum_weightedRating'] / temp_top_users_rating['sum_similarityIndex']
+        recommendation_df['movieId'] = temp_top_users_rating.index
 
         # Sort dataframe and see top X amount of movies
         recommendation_df = recommendation_df.sort_values(by='weighted average recommendation score', ascending=False)
