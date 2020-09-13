@@ -43,7 +43,7 @@ def test_post_user_input_request(gateway_factory):
     }
     response = gateway.handle_request(
         method="POST",
-        path=f"/v1/filmbase/results/reccs",
+        path=f"/v1/filmbase/results/recommendations",
         headers={
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",

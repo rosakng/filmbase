@@ -149,7 +149,7 @@ def get_reccs_by_ratings():
     return svd.predict(1, 100, 3)
 
 
-@app.route('/v1/filmbase/results/reccs', methods=["POST"])
+@app.route('/v1/filmbase/results/recommendations', methods=["POST"])
 def get_reccs_by_user_input_ratings():
     # REQUEST EXAMPLE:
     # {
