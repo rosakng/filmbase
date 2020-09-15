@@ -37,7 +37,7 @@ def get_trending_now():
 @app.route('/v1/filmbase/results/plot', methods=["GET"])
 def get_reccs_by_plot():
     # EXAMPLE URL:
-    # curl -X GET http://localhost:8000/v1/filmbase/results?search_query=The+Avengers
+    # curl -X GET http://localhost:8000/v1/filmbase/results/plot?search_query=The+Avengers
     #
     # Encoded title: The+Avengers
     # Decoded title: The Avengers
@@ -71,7 +71,7 @@ def get_reccs_by_keywords_credits_genres():
     # and movie plot keywords
 
     # EXAMPLE URL:
-    # curl -X GET http://localhost:8000/v1/filmbase/results?search_query=The+Avengers
+    # curl -X GET http://localhost:8000/v1/filmbase/results/metadata?search_query=The+Avengers
     #
     # Encoded title: The+Avengers
     # Decoded title: The Avengers
