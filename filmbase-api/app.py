@@ -21,13 +21,10 @@ def get_trending_now():
     movies = get_film_data()
 
     # Experiment and change the quantile
+    # If only concerned with movies that received at least 90% of votes of movies in the dataset, set this value as 0.9
     m = movies['vote_count'].quantile(0.90)
 
-    print(m)
-
     filtered_movies = movies.copy().loc[movies['vote_count'] >= m]
-
-    print(filtered_movies.shape)
 
     filtered_movies['weighted_average'] = get_weighted_rating(movies)
 
@@ -57,7 +54,7 @@ def get_reccs_by_plot():
     tf_idf_matrix = tf_idf.fit_transform(movies['overview'])
 
     # in (X,Y), Y is the number of different words that were use to describe X movies in the data
-    print(tf_idf_matrix.shape)
+    # use print(tf_idf_matrix.shape) to see the values
 
     cos_similarity = sigmoid_kernel(tf_idf_matrix, tf_idf_matrix)
 
@@ -179,7 +176,6 @@ def get_reccs_by_user_input_ratings():
     request = []
     for item in json_body:
         request.append(json_body.get(item))
-    print(request)
 
     return get_reccs_by_user_input_ratings(request)
 

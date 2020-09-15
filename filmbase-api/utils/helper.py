@@ -80,6 +80,7 @@ def create_metadata_soup(data):
     return ' '.join(data['keywords']) + ' ' + ' '.join(data['cast']) + ' ' + data['director'] + ' ' + ' '.join(
         data['genres'])
 
+
 # Returns movie dataframe with year in a new column and removing it from the title column and without unneeded columns
 def get_clean_movies_dataframe():
     movies_df = pd.read_csv('data/movies.csv')
